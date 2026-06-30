@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>日別管理アプリ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--main:#14b8c4;--dark:#0f8f99;--bg:#f2fbfc;--text:#17323a;--muted:#6b7c83;--line:#d9eef1;--soft:#e8f8fa;--danger:#ef4444;--gold:#f4b942}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#f7feff,var(--bg));color:var(--text)}
+header,main{max-width:1100px;margin:auto}header{padding:22px 18px 10px}.top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}h1{margin:0;font-size:26px}.badge{background:#e8f8fa;color:var(--dark);border-radius:999px;padding:8px 13px;font-weight:800;font-size:13px}
+main{padding:12px 18px 44px;display:grid;grid-template-columns:330px 1fr;gap:18px}.card{background:#fffffff0;border:1px solid var(--line);border-radius:22px;box-shadow:0 10px 30px #0f8f9921;padding:18px}.wide{grid-column:1/-1}
+h2{margin:0 0 12px;font-size:18px}label{display:block;font-weight:900;margin:0 0 8px;font-size:14px}textarea,input,select{width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 13px;font-size:15px;background:#fff;color:var(--text);outline:none}textarea:focus,input:focus,select:focus{border-color:var(--main);box-shadow:0 0 0 4px #14b8c41f}textarea{resize:vertical;min-height:90px;line-height:1.6}.big{min-height:140px}.todayGoal{min-height:105px;font-size:16px}
+button{border:0;background:var(--main);color:#fff;border-radius:14px;padding:11px 13px;font-weight:900;cursor:pointer;font-size:14px}.ghost{background:var(--soft);color:var(--dark)}.danger{background:#fee2e2;color:var(--danger)}
+.goalBox{border:2px solid #14b8c438}.visionBox{border:2px solid #f2dfae;background:radial-gradient(circle at top right,#ffdb7030,transparent 34%),#fff}
+.visionGrid{display:grid;grid-template-columns:240px 1fr;gap:14px}.tabs{display:grid;gap:10px}.vbtn{background:#fff8e6;color:#8a6500;border:1px solid #f2dfae;text-align:left;min-height:50px}.vbtn.active{background:var(--gold);color:#fff}.vpanel{display:none}.vpanel.active{display:block}.selectLine{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:center;margin-bottom:12px}
+.side{display:flex;flex-direction:column;gap:18px}.calHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.monthTitle{font-weight:900;font-size:18px}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;text-align:center}.dow{font-size:12px;color:var(--muted);font-weight:900;padding:5px}.cell{min-height:42px;border:1px solid var(--line);border-radius:13px;background:#fff;display:grid;place-items:center;font-weight:900;cursor:pointer;position:relative}.other{opacity:.35}.selected{background:var(--main);color:#fff;border-color:var(--main)}.has::after{content:"";position:absolute;bottom:6px;width:6px;height:6px;border-radius:50%;background:var(--main)}.selected.has::after{background:#fff}
+.dateTitle{font-size:21px;font-weight:900;margin:0 0 12px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.small{font-size:13px;color:var(--muted);line-height:1.55;margin:8px 0 0}.save{color:var(--dark);font-weight:900;font-size:13px;margin-top:10px}
+.modeBtns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0 14px}.mbtn{background:var(--soft);color:var(--dark);border:2px solid transparent;min-height:54px}.mbtn.active{background:var(--main);color:#fff}.panel{display:none;background:#f8feff;border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0 14px}.panel.active{display:block}.tools{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.list{display:flex;flex-direction:column;gap:10px;margin-top:12px}.row{display:grid;grid-template-columns:132px 1fr 44px;gap:10px;align-items:center;background:#f8feff;border:1px solid var(--line);border-radius:16px;padding:10px}.free{grid-template-columns:1fr 44px;background:#fffdf7;border-color:#f3e7c7}.range{font-weight:900;color:var(--dark);background:var(--soft);border-radius:12px;padding:10px 8px;text-align:center;font-size:14px;cursor:pointer}.empty{text-align:center;color:var(--muted);background:#f8feff;border:1px dashed #bfe8ed;border-radius:16px;padding:24px 10px;margin-top:12px}.hint{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;font-size:13px;color:var(--muted);line-height:1.55;margin-top:12px}
+@media(max-width:850px){main{grid-template-columns:1fr}h1{font-size:23px}.visionGrid,.selectLine,.grid2,.grid3,.modeBtns{grid-template-columns:1fr}.row{grid-template-columns:112px 1fr 40px}.free{grid-template-columns:1fr 40px}}
+
+.lifeLists{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.listCard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
+.listCard.want{border-color:#bfe8ed;background:#f8feff}
+.listCard.skip{border-color:#f3e7c7;background:#fffdf7}
+.bulletList{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.bulletRow{display:grid;grid-template-columns:22px 1fr 42px;gap:8px;align-items:center}
+.bulletMark{font-weight:900;color:var(--dark);text-align:center}
+.bulletRow input{border-radius:12px}
+.bulletAdd{margin-top:10px;width:100%}
+@media(max-width:850px){.lifeLists{grid-template-columns:1fr}.bulletRow{grid-template-columns:22px 1fr 40px}}
+
+
+/* ===== 長文入力をスマホで見切れさせない最終調整 ===== */
+textarea,
+input,
+select{
+  max-width:100%;
+  min-width:0;
+}
+
+.row,
+.free,
+.bulletRow{
+  min-width:0;
+  width:100%;
+  align-items:start;
+}
+
+/* 動的に作る予定・箇条書き入力欄 */
+.scheduleText,
+.bulletText{
+  display:block;
+  width:100%;
+  min-width:0;
+  min-height:48px;
+  height:auto;
+  max-height:none;
+  resize:none;
+  overflow:hidden;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-break:anywhere;
+  line-height:1.55;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:11px 12px;
+  font-size:15px;
+  font-family:inherit;
+  background:#fff;
+  color:var(--text);
+  outline:none;
+}
+
+.scheduleText:focus,
+.bulletText:focus{
+  border-color:var(--main);
+  box-shadow:0 0 0 4px #14b8c41f;
+}
+
+@media(max-width:850px){
+  main{
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+  .card{
+    padding:14px;
+  }
+
+  .row{
+    grid-template-columns:84px minmax(0,1fr) 38px;
+    gap:7px;
+  }
+
+  .free{
+    grid-template-columns:minmax(0,1fr) 38px;
+  }
+
+  .bulletRow{
+    grid-template-columns:18px minmax(0,1fr) 38px;
+    gap:7px;
+  }
+
+  .range{
+    font-size:11px;
+    line-height:1.25;
+    padding:9px 4px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  .scheduleText,
+  .bulletText{
+    font-size:14px;
+    min-height:52px;
+  }
+}
+
+
+/* ===== スマホで6文字程度で見切れる問題の完全対策 ===== */
+@media(max-width:600px){
+  header,
+  main{
+    width:100%;
+    max-width:100%;
+  }
+
+  main{
+    padding-left:10px;
+    padding-right:10px;
+    gap:14px;
+  }
+
+  .card{
+    width:100%;
+    max-width:100%;
+    padding:13px;
+    border-radius:18px;
+    overflow:hidden;
+  }
+
+  .list{
+    width:100%;
+    max-width:100%;
+  }
+
+  /* 時間つき予定：スマホでは縦並びにする */
+  .row{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 38px !important;
+    grid-template-areas:
+      "time time"
+      "text del";
+    width:100%;
+    max-width:100%;
+    gap:8px;
+    padding:9px;
+  }
+
+  .row .range{
+    grid-area:time;
+    width:100%;
+    max-width:100%;
+    text-align:left;
+    font-size:13px;
+    padding:9px 10px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  .row .scheduleText{
+    grid-area:text;
+    width:100% !important;
+    max-width:100%;
+    min-width:0;
+    font-size:15px;
+    min-height:54px;
+  }
+
+  .row button.danger{
+    grid-area:del;
+    width:38px;
+    height:38px;
+    padding:0;
+    align-self:start;
+  }
+
+  /* 時間なし予定：入力欄を横いっぱいにする */
+  .row.free{
+    grid-template-columns:minmax(0,1fr) 38px !important;
+    grid-template-areas:"text del";
+  }
+
+  .row.free .scheduleText{
+    grid-area:text;
+  }
+
+  .row.free button.danger{
+    grid-area:del;
+  }
+
+  /* 箇条書きリスト：点を上に寄せ、入力欄を広くする */
+  .bulletRow{
+    display:grid;
+    grid-template-columns:16px minmax(0,1fr) 38px !important;
+    width:100%;
+    max-width:100%;
+    gap:6px;
+    align-items:start;
+  }
+
+  .bulletMark{
+    padding-top:12px;
+  }
+
+  .bulletText{
+    width:100% !important;
+    max-width:100%;
+    min-width:0;
+    font-size:15px;
+    min-height:54px;
+  }
+
+  .bulletRow button.danger{
+    width:38px;
+    height:38px;
+    padding:0;
+    align-self:start;
+  }
+
+  /* 長文の英数字やURLでも強制改行 */
+  .scheduleText,
+  .bulletText,
+  textarea,
+  input{
+    overflow-wrap:anywhere !important;
+    word-break:break-word !important;
+    line-break:anywhere !important;
+  }
+}
+
+</style>
+</head>
+<body>
+<header><div class="top"><h1>日別管理アプリ</h1><div class="badge" id="todayBadge"></div></div></header>
+<main>
+<section class="card wide visionBox"><h2>長期・中期目標</h2><div class="visionGrid"><div class="tabs"><button class="vbtn active" data-v="week">1週間ごとの目標</button><button class="vbtn" data-v="month">1ヶ月ごとの目標</button><button class="vbtn" data-v="year">1年ごとの目標</button><button class="vbtn" data-v="ten">10年の目標</button></div><div><div class="vpanel active" id="v-week"><div class="selectLine"><label>目標の週</label><select id="weekSelect"></select></div><label>この1週間で達成したい目標</label><textarea id="weekGoal" class="big" placeholder="例：今週は課題をためず、生活リズムを整え、弓道は会で止まらない。"></textarea><p class="small">月曜始まりで週ごとに保存します。</p></div><div class="vpanel" id="v-month"><div class="selectLine"><label>目標の月</label><select id="monthSelect"></select></div><label>この1ヶ月で達成したい目標</label><textarea id="monthGoal" class="big" placeholder="例：今月はアプリを形にして、課題を計画的に進め、身体づくりも続ける。"></textarea></div><div class="vpanel" id="v-year"><div class="selectLine"><label>目標の年</label><select id="yearSelect"></select></div><label>この1年で達成したい目標</label><textarea id="yearGoal" class="big" placeholder="例：2026年は大学・弓道・仕事を軸に、土台を作る。"></textarea></div><div class="vpanel" id="v-ten"><label>10年の目標</label><textarea id="tenGoal" class="big" placeholder="例：10年後にどんな状態になっていたいか。仕事・資産・身体・人間関係・生き方を書く。"></textarea></div></div></div>
+<div class="lifeLists">
+  <div class="listCard want">
+    <h2>やりたいことリスト</h2>
+    <p class="small">やりたいこと・挑戦したいことを箇条書きで残します。</p>
+    <div class="bulletList" id="wantList"></div>
+    <button class="ghost bulletAdd" id="addWant">＋ やりたいことを追加</button>
+  </div>
+  <div class="listCard skip">
+    <h2>やらなくていいことリスト</h2>
+    <p class="small">今はやらないこと・手放すことを箇条書きで残します。</p>
+    <div class="bulletList" id="skipList"></div>
+    <button class="ghost bulletAdd" id="addSkip">＋ やらなくていいことを追加</button>
+  </div>
+</div>
+</section>
+<section class="card wide goalBox"><label>今日の目標</label><textarea id="goal" class="todayGoal" placeholder="例：午前中に課題を終わらせる。"></textarea><p class="save" id="saveStatus">Supabaseに接続中...</p></section>
+<aside class="side"><section class="card"><div class="calHead"><button class="ghost" id="prev">←</button><div class="monthTitle" id="monthTitle"></div><button class="ghost" id="next">→</button></div><div class="cal" id="cal"></div><p class="small">点がついている日は保存データがあります。</p></section><section class="card"><h2>データ管理</h2><div class="tabs"><button class="ghost" id="exportBtn">バックアップを書き出す</button><button class="danger" id="clearDate">この日のデータを削除</button></div><p class="small">データはSupabaseに保存されます。端末にもバックアップされます。</p></section></aside>
+<section class="card"><p class="dateTitle" id="dateTitle"></p><div class="grid2"><div><label>起床時間</label><input type="time" id="wake"></div><div><label>就寝時間</label><input type="time" id="bed"></div></div><p class="small">起床・就寝時間は記録用です。</p><div class="modeBtns"><button class="mbtn active" data-m="fixed">7時区切り</button><button class="mbtn" data-m="free">時間なし</button><button class="mbtn" data-m="custom">自由設定</button></div><div class="panel active" id="p-fixed"><h2>7時からの1時間区切り</h2><p class="small">7:00-8:00、8:00-9:00の固定スケジュールを作ります。</p><div class="tools"><button id="makeFixed">7:00-24:00で作成</button><button class="ghost" id="addFixed">時間つき予定を追加</button><button class="ghost" id="sortFixed">時間順に並べる</button></div></div><div class="panel" id="p-free"><h2>時間なし予定</h2><p class="small">時間を決めずに、予定ややることだけを書きます。</p><div class="tools"><button id="addFree">時間なし予定を追加</button></div></div><div class="panel" id="p-custom"><h2>自由に時間を設定</h2><div class="grid3"><div><label>開始</label><input type="time" id="cStart" value="07:00"></div><div><label>終了</label><input type="time" id="cEnd" value="23:59"></div><div><label>区切り</label><select id="slot"><option value="30">30分</option><option value="60" selected>1時間</option><option value="90">90分</option><option value="120">2時間</option></select></div></div><div class="tools"><button id="makeCustom">この設定で作成</button><button class="ghost" id="addCustom">時間つき予定を追加</button><button class="ghost" id="sortCustom">時間順に並べる</button></div></div><h2 id="listTitle">7時区切りタイムスケジュール</h2><div class="list" id="list"></div><div class="empty" id="empty">まだ予定がありません。上のボタンから作成してください。</div><div class="hint">時間帯をタップすると開始・終了時間を変更できます。</div></section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://nzgvbimjbejyntnytudk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_s0L1RWyObVApjLuOtewjOw_6-NoA0zn";
+const TABLE_NAME = "app_data";
+const ROW_ID = "main";
+const LOCAL_BACKUP_KEY = "daily-management-app-supabase-backup-v1";
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const today = new Date();
+
+let selected = dateKey(today);
+let vy = today.getFullYear();
+let vm = today.getMonth();
+let data = blankData();
+let saveTimer = null;
+
+function blankData(){
+  return {
+    goals: {
+      weeks: {},
+      months: {},
+      years: {},
+      ten: "",
+      want: [],
+      skip: []
+    },
+    days: {}
+  };
+}
+
+function normalizeData(raw){
+  const base = blankData();
+
+  if(!raw) return base;
+
+  raw.goals = raw.goals || {};
+  raw.goals.weeks = raw.goals.weeks || {};
+  raw.goals.months = raw.goals.months || {};
+  raw.goals.years = raw.goals.years || {};
+  raw.goals.ten = raw.goals.ten || raw.goals.tenYear || "";
+  raw.goals.want = raw.goals.want || [];
+  raw.goals.skip = raw.goals.skip || [];
+
+  raw.days = raw.days || {};
+
+  return raw;
+}
+
+async function loadCloudData(){
+  try{
+    $("saveStatus").textContent = "Supabaseから読み込み中...";
+
+    const result = await supabaseClient
+      .from(TABLE_NAME)
+      .select("data")
+      .eq("id", ROW_ID)
+      .maybeSingle();
+
+    if(result.error) throw result.error;
+
+    if(result.data && result.data.data){
+      data = normalizeData(result.data.data);
+      localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(data));
+      $("saveStatus").textContent = "Supabaseに接続済み";
+      return;
+    }
+
+    const backup = localStorage.getItem(LOCAL_BACKUP_KEY);
+    data = backup ? normalizeData(JSON.parse(backup)) : blankData();
+
+    await saveCloudNow();
+    $("saveStatus").textContent = "Supabaseに新規保存しました";
+  }catch(error){
+    console.error("Supabase load error:", error);
+
+    const backup = localStorage.getItem(LOCAL_BACKUP_KEY);
+    data = backup ? normalizeData(JSON.parse(backup)) : blankData();
+
+    $("saveStatus").textContent = "Supabase接続エラー。端末バックアップで表示中";
+  }
+}
+
+function save(){
+  localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(data));
+  $("saveStatus").textContent = "保存中...";
+  renderCal();
+
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveCloudNow, 700);
+}
+
+async function saveCloudNow(){
+  try{
+    const result = await supabaseClient
+      .from(TABLE_NAME)
+      .upsert({
+        id: ROW_ID,
+        data: data,
+        updated_at: new Date().toISOString()
+      });
+
+    if(result.error) throw result.error;
+
+    $("saveStatus").textContent = "Supabaseに保存しました";
+  }catch(error){
+    console.error("Supabase save error:", error);
+    $("saveStatus").textContent = "端末には保存。Supabase保存エラー";
+  }
+}
+
+function dateKey(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function dateJa(k){
+  const [y,m,d] = k.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  const w = "日月火水木金土"[dt.getDay()];
+  return `${y}年${m}月${d}日（${w}）`;
+}
+
+function currentDay(){
+  if(!data.days[selected]){
+    data.days[selected] = {
+      goal: "",
+      wakeTime: "",
+      bedTime: "",
+      mode: "fixed",
+      customStart: "07:00",
+      customEnd: "23:59",
+      slotMinutes: "60",
+      fixedSchedule: [],
+      customSchedule: [],
+      freeTasks: []
+    };
+  }
+
+  const d = data.days[selected];
+
+  d.fixedSchedule = d.fixedSchedule || [];
+  d.customSchedule = d.customSchedule || [];
+  d.freeTasks = d.freeTasks || [];
+  d.mode = d.mode || "fixed";
+
+  return d;
+}
+
+function hasDayData(k){
+  const d = data.days[k];
+  if(!d) return false;
+
+  return Boolean(
+    (d.goal && d.goal.trim()) ||
+    d.wakeTime ||
+    d.bedTime ||
+    (d.fixedSchedule || []).some(x => x.task || x.start) ||
+    (d.customSchedule || []).some(x => x.task || x.start) ||
+    (d.freeTasks || []).some(x => x.task)
+  );
+}
+
+function monday(dt){
+  const d = new Date(dt);
+  const g = d.getDay();
+  const diff = g === 0 ? -6 : 1 - g;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function addDays(dt, n){
+  const d = new Date(dt);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function weekKey(dt){
+  return dateKey(monday(dt));
+}
+
+function monthKey(dt){
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`;
+}
+
+function fillGoalSelects(){
+  const y = today.getFullYear();
+  const baseMonday = monday(today);
+
+  $("weekSelect").innerHTML = "";
+  for(let i=-12; i<=60; i++){
+    const m = addDays(baseMonday, i*7);
+    const s = addDays(m, 6);
+    const option = new Option(
+      `${m.getFullYear()}年${m.getMonth()+1}月${m.getDate()}日〜${s.getMonth()+1}月${s.getDate()}日`,
+      dateKey(m)
+    );
+    if(option.value === weekKey(today)) option.selected = true;
+    $("weekSelect").add(option);
+  }
+
+  $("monthSelect").innerHTML = "";
+  for(let yy=y-1; yy<=y+10; yy++){
+    for(let mm=1; mm<=12; mm++){
+      const v = `${yy}-${String(mm).padStart(2,"0")}`;
+      const option = new Option(`${yy}年${mm}月`, v);
+      if(v === monthKey(today)) option.selected = true;
+      $("monthSelect").add(option);
+    }
+  }
+
+  $("yearSelect").innerHTML = "";
+  for(let yy=y-1; yy<=y+20; yy++){
+    const option = new Option(`${yy}年`, String(yy));
+    if(yy === y) option.selected = true;
+    $("yearSelect").add(option);
+  }
+}
+
+function loadGoals(){
+  $("weekGoal").value = data.goals.weeks[$("weekSelect").value] || "";
+  $("monthGoal").value = data.goals.months[$("monthSelect").value] || "";
+  $("yearGoal").value = data.goals.years[$("yearSelect").value] || "";
+  $("tenGoal").value = data.goals.ten || "";
+}
+
+function saveGoals(){
+  data.goals.weeks[$("weekSelect").value] = $("weekGoal").value;
+  data.goals.months[$("monthSelect").value] = $("monthGoal").value;
+  data.goals.years[$("yearSelect").value] = $("yearGoal").value;
+  data.goals.ten = $("tenGoal").value;
+  save();
+}
+
+function renderBulletLists(){
+  renderBulletList("wantList", data.goals.want, "やりたいこと");
+  renderBulletList("skipList", data.goals.skip, "やらなくていいこと");
+}
+
+function renderBulletList(elementId, arr, placeholder){
+  const box = $(elementId);
+  box.innerHTML = "";
+
+  if(!arr.length){
+    arr.push("");
+  }
+
+  arr.forEach((text, i) => {
+    const row = document.createElement("div");
+    row.className = "bulletRow";
+
+    const mark = document.createElement("div");
+    mark.className = "bulletMark";
+    mark.textContent = "・";
+
+    const input = document.createElement("textarea");
+    input.className = "bulletText";
+    input.rows = 1;
+    input.placeholder = `${placeholder}を書く`;
+    input.value = text || "";
+    input.oninput = () => {
+      arr[i] = input.value;
+      autoResize(input);
+      save();
+    };
+    requestAnimationFrame(() => autoResize(input));
+
+    const del = document.createElement("button");
+    del.className = "danger";
+    del.textContent = "×";
+    del.onclick = () => {
+      arr.splice(i, 1);
+      if(!arr.length) arr.push("");
+      save();
+      renderBulletLists();
+    };
+
+    row.append(mark, input, del);
+    box.appendChild(row);
+  });
+}
+
+function addBullet(type){
+  if(type === "want"){
+    data.goals.want.push("");
+  }else{
+    data.goals.skip.push("");
+  }
+
+  save();
+  renderBulletLists();
+}
+
+function autoResize(el){
+  if(!el) return;
+  el.style.height = "auto";
+  el.style.height = (el.scrollHeight + 2) + "px";
+}
+
+function setVision(v){
+  document.querySelectorAll(".vbtn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.v === v);
+  });
+
+  document.querySelectorAll(".vpanel").forEach(panel => {
+    panel.classList.remove("active");
+  });
+
+  $("v-" + v).classList.add("active");
+}
+
+function loadDate(){
+  const d = currentDay();
+
+  $("dateTitle").textContent = dateJa(selected);
+  $("goal").value = d.goal || "";
+  $("wake").value = d.wakeTime || "";
+  $("bed").value = d.bedTime || "";
+  $("cStart").value = d.customStart || "07:00";
+  $("cEnd").value = d.customEnd || "23:59";
+  $("slot").value = d.slotMinutes || "60";
+
+  setMode(d.mode, false);
+  renderCal();
+}
+
+function updateDay(){
+  const d = currentDay();
+
+  d.goal = $("goal").value;
+  d.wakeTime = $("wake").value;
+  d.bedTime = $("bed").value;
+  d.customStart = $("cStart").value || "07:00";
+  d.customEnd = $("cEnd").value || "23:59";
+  d.slotMinutes = $("slot").value || "60";
+
+  save();
+}
+
+function setMode(m, doSave = true){
+  const d = currentDay();
+  d.mode = m;
+
+  document.querySelectorAll(".mbtn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.m === m);
+  });
+
+  document.querySelectorAll(".panel").forEach(panel => {
+    panel.classList.remove("active");
+  });
+
+  $("p-" + m).classList.add("active");
+
+  $("listTitle").textContent =
+    m === "fixed" ? "7時区切りタイムスケジュール" :
+    m === "free" ? "時間なし予定" :
+    "自由設定タイムスケジュール";
+
+  if(doSave) save();
+  renderList();
+}
+
+function renderCal(){
+  const cal = $("cal");
+  cal.innerHTML = "";
+  $("monthTitle").textContent = `${vy}年 ${vm+1}月`;
+
+  ["日","月","火","水","木","金","土"].forEach(x => {
+    const e = document.createElement("div");
+    e.className = "dow";
+    e.textContent = x;
+    cal.appendChild(e);
+  });
+
+  const first = new Date(vy, vm, 1);
+  const start = new Date(vy, vm, 1 - first.getDay());
+
+  for(let i=0; i<42; i++){
+    const dt = new Date(start);
+    dt.setDate(start.getDate() + i);
+
+    const k = dateKey(dt);
+    const c = document.createElement("div");
+
+    c.className =
+      "cell" +
+      (dt.getMonth() !== vm ? " other" : "") +
+      (k === selected ? " selected" : "") +
+      (hasDayData(k) ? " has" : "");
+
+    c.textContent = dt.getDate();
+
+    c.onclick = () => {
+      selected = k;
+      vy = dt.getFullYear();
+      vm = dt.getMonth();
+      loadDate();
+    };
+
+    cal.appendChild(c);
+  }
+}
+
+function toMinutes(v){
+  if(!v) return null;
+  if(v === "24:00" || v === "23:59") return 1440;
+
+  const [h,m] = v.split(":").map(Number);
+  return h*60 + m;
+}
+
+function toTime(n){
+  if(n === 1440) return "24:00";
+  n %= 1440;
+  return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`;
+}
+
+function shown(v){
+  return v === "23:59" ? "24:00" : v || "";
+}
+
+function makeSchedule(start, end, slot, target){
+  const d = currentDay();
+  let s = toMinutes(start);
+  let e = toMinutes(end);
+
+  if(s == null || e == null){
+    alert("時間を入力してください");
+    return;
+  }
+
+  if(e <= s) e += 1440;
+
+  const arr = [];
+  for(let t=s; t<e; t+=slot){
+    arr.push({
+      start: toTime(t),
+      end: toTime(Math.min(t+slot, e)),
+      task: ""
+    });
+  }
+
+  if(target === "fixed") d.fixedSchedule = arr;
+  else d.customSchedule = arr;
+
+  save();
+  renderList();
+}
+
+function listFor(m){
+  const d = currentDay();
+  return m === "fixed" ? d.fixedSchedule :
+         m === "custom" ? d.customSchedule :
+         d.freeTasks;
+}
+
+function renderList(){
+  const d = currentDay();
+  const list = listFor(d.mode);
+  const box = $("list");
+
+  box.innerHTML = "";
+
+  if(!list.length){
+    $("empty").style.display = "block";
+    $("empty").textContent = d.mode === "free"
+      ? "まだ時間なし予定がありません。"
+      : "まだ予定がありません。上のボタンから作成してください。";
+    return;
+  }
+
+  $("empty").style.display = "none";
+
+  list.forEach((it, i) => {
+    const r = document.createElement("div");
+    r.className = "row" + (d.mode === "free" ? " free" : "");
+
+    if(d.mode !== "free"){
+      const range = document.createElement("div");
+      range.className = "range";
+      range.textContent = `${shown(it.start) || "--:--"} - ${shown(it.end) || "--:--"}`;
+      range.onclick = () => editTime(i, d.mode);
+      r.appendChild(range);
+    }
+
+    const inp = document.createElement("textarea");
+    inp.className = "scheduleText";
+    inp.rows = 1;
+    inp.placeholder = d.mode === "free" ? "時間なしの予定・やること" : "予定・やること";
+    inp.value = it.task || "";
+    inp.oninput = () => {
+      list[i].task = inp.value;
+      autoResize(inp);
+      save();
+    };
+    requestAnimationFrame(() => autoResize(inp));
+
+    const del = document.createElement("button");
+    del.className = "danger";
+    del.textContent = "×";
+    del.onclick = () => {
+      list.splice(i, 1);
+      save();
+      renderList();
+    };
+
+    r.append(inp, del);
+    box.appendChild(r);
+  });
+}
+
+function editTime(i, m){
+  const list = listFor(m);
+  const it = list[i];
+
+  const s = prompt("開始時間 例：07:00", shown(it.start) || "07:00");
+  if(s === null) return;
+
+  const e = prompt("終了時間 例：08:00", shown(it.end) || "08:00");
+  if(e === null) return;
+
+  it.start = s.trim();
+  it.end = e.trim();
+
+  save();
+  renderList();
+}
+
+function addTimed(m){
+  listFor(m).push({
+    start: "",
+    end: "",
+    task: ""
+  });
+
+  save();
+  renderList();
+}
+
+function addFree(){
+  currentDay().freeTasks.push({
+    task: ""
+  });
+
+  save();
+  renderList();
+}
+
+function sortRows(m){
+  listFor(m).sort((a,b) => (toMinutes(a.start) ?? 99999) - (toMinutes(b.start) ?? 99999));
+  save();
+  renderList();
+}
+
+function bindEvents(){
+  ["goal","wake","bed","cStart","cEnd"].forEach(id => {
+    $(id).oninput = updateDay;
+  });
+
+  $("slot").onchange = updateDay;
+
+  ["weekSelect","monthSelect","yearSelect"].forEach(id => {
+    $(id).onchange = loadGoals;
+  });
+
+  ["weekGoal","monthGoal","yearGoal","tenGoal"].forEach(id => {
+    $(id).oninput = saveGoals;
+  });
+
+  document.querySelectorAll(".vbtn").forEach(btn => {
+    btn.onclick = () => setVision(btn.dataset.v);
+  });
+
+  document.querySelectorAll(".mbtn").forEach(btn => {
+    btn.onclick = () => setMode(btn.dataset.m);
+  });
+
+  $("makeFixed").onclick = () => makeSchedule("07:00", "24:00", 60, "fixed");
+  $("addFixed").onclick = () => addTimed("fixed");
+  $("sortFixed").onclick = () => sortRows("fixed");
+  $("addFree").onclick = addFree;
+  $("addWant").onclick = () => addBullet("want");
+  $("addSkip").onclick = () => addBullet("skip");
+
+  $("makeCustom").onclick = () => {
+    const d = currentDay();
+    d.customStart = $("cStart").value || "07:00";
+    d.customEnd = $("cEnd").value || "23:59";
+    d.slotMinutes = $("slot").value || "60";
+    makeSchedule(d.customStart, d.customEnd, Number(d.slotMinutes), "custom");
+  };
+
+  $("addCustom").onclick = () => addTimed("custom");
+  $("sortCustom").onclick = () => sortRows("custom");
+
+  $("prev").onclick = () => {
+    vm--;
+    if(vm < 0){
+      vm = 11;
+      vy--;
+    }
+    renderCal();
+  };
+
+  $("next").onclick = () => {
+    vm++;
+    if(vm > 11){
+      vm = 0;
+      vy++;
+    }
+    renderCal();
+  };
+
+  $("clearDate").onclick = () => {
+    if(confirm(`${dateJa(selected)} のデータを削除しますか？`)){
+      delete data.days[selected];
+      save();
+      loadDate();
+    }
+  };
+
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "daily-management-backup.json";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
+}
+
+async function init(){
+  $("todayBadge").textContent = `今日：${dateJa(dateKey(today))}`;
+
+  fillGoalSelects();
+  bindEvents();
+
+  await loadCloudData();
+
+  loadGoals();
+  renderBulletLists();
+  loadDate();
+}
+
+init();
+</script>
+</body>
+</html>
